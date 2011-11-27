@@ -4,7 +4,7 @@
 Summary:          S/MIME and CMS libraries for Bouncy Castle
 Name:             bouncycastle-mail
 Version:          %{ver}
-Release:          1
+Release:          3
 Group:            System/Libraries
 License:          MIT
 URL:              http://www.bouncycastle.org/
