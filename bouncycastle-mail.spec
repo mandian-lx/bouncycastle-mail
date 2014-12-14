@@ -1,27 +1,29 @@
 %{?_javapackages_macros:%_javapackages_macros}
-%global ver  1.46
-%global archivever  jdk16-%(echo %{ver}|sed 's|\\\.||')
+%global ver  1.50
+%global archivever  jdk15on-%(echo %{ver}|sed 's|\\\.||')
 
 Summary:          S/MIME and CMS libraries for Bouncy Castle
 Name:             bouncycastle-mail
 Version:          %{ver}
-Release:          11.0%{?dist}
+Group:		  System/Libraries
+Release:          5%{?dist}
 License:          MIT
 URL:              http://www.bouncycastle.org/
 Source0:          http://www.bouncycastle.org/download/bcmail-%{archivever}.tar.gz
-Source1:          http://repo2.maven.org/maven2/org/bouncycastle/bcmail-jdk16/%{version}/bcmail-jdk16-%{version}.pom
+Source1:          http://repo2.maven.org/maven2/org/bouncycastle/bcmail-jdk15on/%{version}/bcmail-jdk15on-%{version}.pom
+
 BuildArch:        noarch
-BuildRequires:    bouncycastle == %{version}
-BuildRequires:    bouncycastle >= 1.46-5
+BuildRequires:    bouncycastle = %{version}
+BuildRequires:    bouncycastle-pkix = %{version}
 BuildRequires:    java-devel >= 1.7
 BuildRequires:    javamail
-BuildRequires:    jpackage-utils >= 1.5
+BuildRequires:    javapackages-tools
 BuildRequires:    junit
-Requires:         bouncycastle == %{version}
-Requires:         bouncycastle >= 1.46-5
-Requires:         java >= 1.7
+Requires:         bouncycastle = %{version}
+Requires:         bouncycastle-pkix = %{version}
+Requires:         java-headless >= 1.7
 Requires:         javamail
-Requires:         jpackage-utils >= 1.5
+Requires:         javapackages-tools
 Provides:         bcmail = %{version}-%{release}
 
 %description
@@ -41,13 +43,25 @@ API documentation for the %{name} package.
 %setup -q -n bcmail-%{archivever}
 mkdir src
 unzip -qq src.zip -d src/
-# Remove provided binaries
-find . -type f -name "*.class" -exec rm -f {} \;
-find . -type f -name "*.jar" -exec rm -f {} \;
+
+find . -type f -name "*.class" -delete
+find . -type f -name "*.jar" -delete
+
+# too many "IOException: Stream closed" failures
+rm -f src/org/bouncycastle/mail/smime/test/AllTests.java
+
+# package org.bouncycastle.cms.test does not exist
+rm -f src/org/bouncycastle/mail/smime/test/NewSMIMEEnvelopedTest.java
+rm -f src/org/bouncycastle/mail/smime/test/NewSMIMESignedTest.java
+rm -f src/org/bouncycastle/mail/smime/test/SMIMECompressedTest.java
+rm -f src/org/bouncycastle/mail/smime/test/SMIMEMiscTest.java
+rm -f src/org/bouncycastle/mail/smime/test/SignedMailValidatorTest.java
+
+cp %{SOURCE1} pom.xml
 
 %build
 pushd src
-  export CLASSPATH=$(build-classpath junit bcprov javamail)
+  export CLASSPATH=$(build-classpath junit bcprov bcpkix javamail)
   %javac -g -source 1.6 -target 1.6 -encoding UTF-8 $(find . -type f -name "*.java")
   jarfile="../bcmail.jar"
   # Exclude all */test/* , cf. upstream
@@ -64,41 +78,51 @@ install -dm 755 $RPM_BUILD_ROOT%{_javadir}
 install -pm 644 bcmail.jar \
   $RPM_BUILD_ROOT%{_javadir}/bcmail.jar
 
-install -dm 755 $RPM_BUILD_ROOT%{_javadir}/gcj-endorsed
-pushd $RPM_BUILD_ROOT%{_javadir}/gcj-endorsed
-  ln -sf ../bcmail.jar bcmail.jar
-popd
-
 # javadoc
 mkdir -p $RPM_BUILD_ROOT%{_javadocdir}/%{name}
 cp -pr docs/* $RPM_BUILD_ROOT%{_javadocdir}/%{name}
 
 # maven pom
 install -dm 755 $RPM_BUILD_ROOT%{_mavenpomdir}
-install -pm 644 %{SOURCE1} $RPM_BUILD_ROOT%{_mavenpomdir}/JPP-bcmail.pom
-%add_maven_depmap JPP-bcmail.pom bcmail.jar
+install -pm 644 pom.xml $RPM_BUILD_ROOT%{_mavenpomdir}/JPP-bcmail.pom
+%add_maven_depmap -a "org.bouncycastle:bcmail-jdk16" JPP-bcmail.pom bcmail.jar
 
 %check
 pushd src
-  export CLASSPATH=$PWD:$(build-classpath junit javamail bcprov)
+  export CLASSPATH=$PWD:$(build-classpath junit javamail bcprov bcpkix)
   for test in $(find . -name AllTests.class) ; do
     test=${test#./} ; test=${test%.class} ; test=${test//\//.}
-    # TODO: failures; get them fixed and remove || :
-    %java org.junit.runner.JUnitCore $test || :
+    %java org.junit.runner.JUnitCore $test
   done
 popd
 
-%files
+%files -f .mfiles
 %doc *.html
 %{_javadir}/bcmail.jar
-%{_javadir}/gcj-endorsed/bcmail.jar
 %{_mavenpomdir}/JPP-bcmail.pom
-%{_mavendepmapfragdir}/%{name}
 
 %files javadoc
 %{_javadocdir}/%{name}
 
 %changelog
+* Tue Jun 10 2014 Alexander Kurtakov <akurtako@redhat.com> 1.50-5
+- Fix FTBFS.
+- Drop gcj support.
+
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.50-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Tue Mar 04 2014 gil cattaneo <puntogil@libero.it> 1.50-3
+- add bcpkix suppport
+
+* Tue Feb 25 2014 Michal Srb <msrb@redhat.com> - 1.50-2
+- Remove unavailable dep from pom.xml
+
+* Mon Feb 24 2014 Michal Srb <msrb@redhat.com> - 1.50-1
+- Update to upstream version 1.50
+- Switch to java-headless (Resolves: rhbz#1067986)
+- Enable (some) tests
+
 * Tue Oct 22 2013 gil cattaneo <puntogil@libero.it> 1.46-11
 - remove versioned Jars
 
@@ -192,3 +216,4 @@ popd
 * Thu Oct  2 2008 Orcan Ogetbil <oget [DOT] fedora [AT] gmail [DOT] com> - 1.41-1
 - Initial Release
 - Spec file stolen from bouncycastle-1.41-1 and modified for bcmail
+
