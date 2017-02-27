@@ -74,7 +74,7 @@ pushd src
   test -n "$mf" && jar cfm $jarfile $mf $files \
     || jar cf $jarfile $files
 popd
-bnd wrap -p bcm.bnd -o bcmail.bar bcmail.jar
+java -jar $(build-classpath aqute-bnd) wrap -properties bc.bnd bcmail.jar
 mv bcmail.bar bcmail.jar
 %mvn_artifact pom.xml bcmail.jar
 
