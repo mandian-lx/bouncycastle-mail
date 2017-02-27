@@ -92,10 +92,10 @@ popd
 
 %files -f .mfiles
 %doc CONTRIBUTORS.html index.html
-%license LICENSE.html
+%doc LICENSE.html
 
 %files javadoc -f .mfiles-javadoc
-%license LICENSE.html
+%doc LICENSE.html
 
 %changelog
 * Fri Feb 10 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.54-2
