@@ -1,4 +1,5 @@
 sources:
   bcmail-jdk15on-1.54.pom:	d1f90bc6de85d284fbcba1f11ff6b36aaebbcf95
   bcmail-jdk15on-154.tar.gz:	6be32f5024ef138cb9d58b8b4388e63f97c7c968
+  bctest-jdk15on-154.jar:	216ae5805aa03415c17a5332e6e5a0b9fc711098
   bouncycastle-mail-OSGi.bnd:	557aae569fd096ff752e0089fe8f085b3d5df6cb
