@@ -1,30 +1,34 @@
 %{?_javapackages_macros:%_javapackages_macros}
-%global ver  1.50
+
+%global ver  1.54
 %global archivever  jdk15on-%(echo %{ver}|sed 's|\\\.||')
 
 Summary:          S/MIME and CMS libraries for Bouncy Castle
 Name:             bouncycastle-mail
 Version:          %{ver}
-Group:		  System/Libraries
-Release:          5%{?dist}
+Release:          1
 License:          MIT
 URL:              http://www.bouncycastle.org/
+
+# Source tarball contains everything except test suite rousources
 Source0:          http://www.bouncycastle.org/download/bcmail-%{archivever}.tar.gz
-Source1:          http://repo2.maven.org/maven2/org/bouncycastle/bcmail-jdk15on/%{version}/bcmail-jdk15on-%{version}.pom
+# Test suite resources are found in this jar
+Source1:          http://www.bouncycastle.org/download/bctest-%{archivever}.jar
+
+Source2:          http://repo2.maven.org/maven2/org/bouncycastle/bcmail-jdk15on/%{version}/bcmail-jdk15on-%{version}.pom
+Source3:          bouncycastle-mail-OSGi.bnd
 
 BuildArch:        noarch
-BuildRequires:    bouncycastle = %{version}
-BuildRequires:    bouncycastle-pkix = %{version}
-BuildRequires:    java-devel >= 1.7
-BuildRequires:    javamail
-BuildRequires:    javapackages-tools
+BuildRequires:    aqute-bnd
+BuildRequires:    java-devel
+BuildRequires:    javapackages-local
 BuildRequires:    junit
-Requires:         bouncycastle = %{version}
-Requires:         bouncycastle-pkix = %{version}
-Requires:         java-headless >= 1.7
+BuildRequires:    mvn(org.bouncycastle:bcpkix-jdk15on) = %{version}
+BuildRequires:    mvn(org.bouncycastle:bcprov-jdk15on) = %{version}
+BuildRequires:    javamail
+Requires:         mvn(org.bouncycastle:bcpkix-jdk15on) = %{version}
+Requires:         mvn(org.bouncycastle:bcprov-jdk15on) = %{version}
 Requires:         javamail
-Requires:         javapackages-tools
-Provides:         bcmail = %{version}-%{release}
 
 %description
 Bouncy Castle consists of a lightweight cryptography API and is a provider 
@@ -34,77 +38,100 @@ generators/processors for S/MIME and CMS, for Bouncy Castle.
 
 %package javadoc
 Summary:        Javadoc for %{name}
-Requires:       %{name} = %{version}-%{release}
 
 %description javadoc
 API documentation for the %{name} package.
 
 %prep
 %setup -q -n bcmail-%{archivever}
+
+# Unzip source and test suite resources
 mkdir src
 unzip -qq src.zip -d src/
+unzip -qq %{SOURCE1} 'org/bouncycastle/mail/*' -x '*.class' '*.properties' -d src
 
+cp -p %{SOURCE2} pom.xml
+
+# Remove provided binaries
 find . -type f -name "*.class" -delete
 find . -type f -name "*.jar" -delete
 
-# too many "IOException: Stream closed" failures
-rm -f src/org/bouncycastle/mail/smime/test/AllTests.java
+cp -p %{SOURCE3} bcm.bnd
+sed -i "s|@VERSION@|%{version}|" bcm.bnd
 
-# package org.bouncycastle.cms.test does not exist
-rm -f src/org/bouncycastle/mail/smime/test/NewSMIMEEnvelopedTest.java
-rm -f src/org/bouncycastle/mail/smime/test/NewSMIMESignedTest.java
-rm -f src/org/bouncycastle/mail/smime/test/SMIMECompressedTest.java
-rm -f src/org/bouncycastle/mail/smime/test/SMIMEMiscTest.java
-rm -f src/org/bouncycastle/mail/smime/test/SignedMailValidatorTest.java
-
-cp %{SOURCE1} pom.xml
+%mvn_file :bcmail-jdk15on bcmail
+%mvn_alias :bcmail-jdk15on "org.bouncycastle:bcmail-jdk16"
 
 %build
 pushd src
   export CLASSPATH=$(build-classpath junit bcprov bcpkix javamail)
-  %javac -g -source 1.6 -target 1.6 -encoding UTF-8 $(find . -type f -name "*.java")
+  javac -g -source 1.6 -target 1.6 -encoding UTF-8 $(find . -type f -name "*.java")
   jarfile="../bcmail.jar"
   # Exclude all */test/* , cf. upstream
   files="$(find . -type f \( -name '*.class' -o -name '*.properties' \) -not -path '*/test/*')"
   test ! -d classes && mf="" \
     || mf="`find classes/ -type f -name "*.mf" 2>/dev/null`"
-  test -n "$mf" && %jar cvfm $jarfile $mf $files \
-    || %jar cvf $jarfile $files
+  test -n "$mf" && jar cfm $jarfile $mf $files \
+    || jar cf $jarfile $files
 popd
+bnd wrap -p bcm.bnd -o bcmail.bar bcmail.jar
+mv bcmail.bar bcmail.jar
+%mvn_artifact pom.xml bcmail.jar
 
 %install
-# install bouncy castle mail
-install -dm 755 $RPM_BUILD_ROOT%{_javadir}
-install -pm 644 bcmail.jar \
-  $RPM_BUILD_ROOT%{_javadir}/bcmail.jar
-
-# javadoc
-mkdir -p $RPM_BUILD_ROOT%{_javadocdir}/%{name}
-cp -pr docs/* $RPM_BUILD_ROOT%{_javadocdir}/%{name}
-
-# maven pom
-install -dm 755 $RPM_BUILD_ROOT%{_mavenpomdir}
-install -pm 644 pom.xml $RPM_BUILD_ROOT%{_mavenpomdir}/JPP-bcmail.pom
-%add_maven_depmap -a "org.bouncycastle:bcmail-jdk16" JPP-bcmail.pom bcmail.jar
+%mvn_install -J javadoc
 
 %check
 pushd src
-  export CLASSPATH=$PWD:$(build-classpath junit javamail bcprov bcpkix)
+  export CLASSPATH=$PWD:$(build-classpath junit hamcrest/core javamail bcprov bcpkix)
   for test in $(find . -name AllTests.class) ; do
     test=${test#./} ; test=${test%.class} ; test=${test//\//.}
-    %java org.junit.runner.JUnitCore $test
+    java org.junit.runner.JUnitCore $test
   done
 popd
 
 %files -f .mfiles
-%doc *.html
-%{_javadir}/bcmail.jar
-%{_mavenpomdir}/JPP-bcmail.pom
+%doc CONTRIBUTORS.html index.html
+%license LICENSE.html
 
-%files javadoc
-%{_javadocdir}/%{name}
+%files javadoc -f .mfiles-javadoc
+%license LICENSE.html
 
 %changelog
+* Fri Feb 10 2017 Fedora Release Engineering <releng@fedoraproject.org> - 1.54-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
+
+* Thu Apr 07 2016 Mat Booth <mat.booth@redhat.com> - 1.54-1
+- Update to 1.54, fixes rhbz#1275175
+- Install with mvn_install
+- Allow tests to run
+
+* Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 1.52-7
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Fri Jul 17 2015 gil cattaneo <puntogil@libero.it> 1.52-6
+- remove the OSGi deprecated entry in bnd properties file
+
+* Thu Jul 16 2015 Michael Simacek <msimacek@redhat.com> - 1.52-5
+- Use aqute-bnd-2.4.1
+
+* Tue Jun 23 2015 gil cattaneo <puntogil@libero.it> 1.52-4
+- dropped the Export/Import-Package lists in the bnd properties file
+
+* Thu Jun 18 2015 gil cattaneo <puntogil@libero.it> 1.52-3
+- add OSGi metadata
+- remove duplicate files
+
+* Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.52-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
+
+* Wed Apr 22 2015 Alexander Kurtakov <akurtako@redhat.com> 1.52-1
+- Update to 1.52.
+- Bump source/target to 1.6 as 1.5 is to be removed in Java 9.
+
+* Fri Feb 13 2015 gil cattaneo <puntogil@libero.it> 1.50-6
+- introduce license macro
+
 * Tue Jun 10 2014 Alexander Kurtakov <akurtako@redhat.com> 1.50-5
 - Fix FTBFS.
 - Drop gcj support.
@@ -216,4 +243,3 @@ popd
 * Thu Oct  2 2008 Orcan Ogetbil <oget [DOT] fedora [AT] gmail [DOT] com> - 1.41-1
 - Initial Release
 - Spec file stolen from bouncycastle-1.41-1 and modified for bcmail
-

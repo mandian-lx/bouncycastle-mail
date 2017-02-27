@@ -1,0 +1,21 @@
+# BND/OSGI Properties by gil
+Application-Library-Allowable-Codebase: *
+Application-Name: Bouncy Castle S/MIME API
+Built-By: ${user.name}
+Bundle-ManifestVersion: 2
+Bundle-Name: bcmail
+Bundle-SymbolicName: bcmail
+Bundle-Version: @VERSION@
+Caller-Allowable-Codebase: *
+Codebase: *
+Created-By: ${java.version} (${java.vendor})
+Extension-Name: org.bouncycastle.bcmail
+Implementation-Version: @VERSION@.0
+Implementation-Vendor: BouncyCastle.org
+Implementation-Vendor-Id: org.bouncycastle
+Originally-Created-By: ${java.version} (${java.vendor})
+Permissions: all-permissions
+Specification-Vendor: BouncyCastle.org
+Specification-Version: 1.1
+Trusted-Library: true
+Export-Package: org.bouncycastle.*
