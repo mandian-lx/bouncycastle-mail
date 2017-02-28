@@ -21,7 +21,7 @@ Source3:          bouncycastle-mail-OSGi.bnd
 BuildArch:        noarch
 BuildRequires:    aqute-bnd
 BuildRequires:    java-devel
-BuildRequires:    javapackages-local
+BuildRequires:    jpackage-utils
 BuildRequires:    junit
 BuildRequires:    mvn(org.bouncycastle:bcpkix-jdk15on) = %{version}
 BuildRequires:    mvn(org.bouncycastle:bcprov-jdk15on) = %{version}
