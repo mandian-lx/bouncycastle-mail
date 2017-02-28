@@ -22,6 +22,7 @@ BuildArch:        noarch
 BuildRequires:    aqute-bnd
 BuildRequires:    java-devel
 BuildRequires:    jpackage-utils
+BuildRequires:    maven-local
 BuildRequires:    junit
 BuildRequires:    mvn(org.bouncycastle:bcpkix-jdk15on) = %{version}
 BuildRequires:    mvn(org.bouncycastle:bcprov-jdk15on) = %{version}
